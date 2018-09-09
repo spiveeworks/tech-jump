@@ -1,4 +1,5 @@
 tiles = {}
+level = {}
 
 function tiles.load(self, path)
   self.img = love.graphics.newImage(path)
@@ -19,16 +20,28 @@ function tiles.load(self, path)
   end
 end
 
+function level.generate(self)
+  self.width, self.height = 25, 19
+  for x = 1, self.width do
+    self[x] = {}
+    self[x][self.height - 1] = 1
+    self[x][self.height] = 1
+  end
+end
 
 function love.load()
   tiles:load('tileset.png')
+  level:generate()
 end
 
+
 function love.draw()
-  for i = 1,3 do
-    for j = 1,3 do
-      love.graphics.draw(tiles.img, tiles.quads[1], (10 + i) * 32, (8 + j) * 32)
+  for x = 1, level.width do
+    for y = 1, level.height do
+      local id = level[x][y]
+      if id then
+        love.graphics.draw(tiles.img, tiles.quads[id], (x - 1) * 32, (y - 1) * 32)
+      end
     end
   end
-  love.graphics.draw(tiles.img, tiles.quads[4], 12 * 32, 10 * 32)
 end
