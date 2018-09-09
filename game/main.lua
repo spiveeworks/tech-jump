@@ -65,7 +65,8 @@ function solve_projectile(height, time)
   return speed, acc
 end
 
-local JUMP_SPEED, JUMP_ACC = solve_projectile(JUMP_HEIGHT, JUMP_TIME)
+local JUMP_VEL, JUMP_ACC = solve_projectile(JUMP_HEIGHT, JUMP_TIME)
+local ABSORB_VEL = -3
 
 function modes.update(body)
   modes[body.mode](body)
@@ -73,11 +74,13 @@ end
 
 function modes.falling(body)
   if body.y > FLOOR_HEIGHT then
-    body.mode = body.next_mode
+    body.mode = "walking"
     body.next_mode = nil
     body.y = FLOOR_HEIGHT
+    body.vel_x = 0
     body.vel_y = 0
     body.acc_y = 0
+    body.walk_frames = body.walk_frames and 0
   end
 end
 
@@ -130,26 +133,21 @@ function update_walk_velocity(body)
 end
 
 function update_jump_input(body)
+  local jump_vel = nil
   if love.keyboard.isDown("z") then
     body.jump_frames = (body.jump_frames or -1) + 1
-  elseif body.jump_frames then
-    body.mode = "falling"
-    body.acc_y = JUMP_ACC
     if body.jump_frames > ABSORB_WARMUP then
-      body.next_mode = "braking"
-      body.vel_y = -3
-    else
-      body.next_mode = "walking"
-      body.vel_y = JUMP_SPEED
+      jump_vel = ABSORB_VEL
     end
-    body.jump_frames = nil
+  elseif body.jump_frames then
+    jump_vel = JUMP_VEL
   end
-end
-
-function modes.braking(body)
-  body.vel_x = 0
-  body.mode = "walking"
-  body.walk_frames = body.walk_frames and 0
+  if jump_vel then
+    body.vel_y = jump_vel
+    body.acc_y = JUMP_ACC
+    body.jump_frames = nil
+    body.mode = "falling"
+  end
 end
 
 function love.update()
