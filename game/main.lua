@@ -122,6 +122,7 @@ function update_jump_input(body)
   end
   if jump_vel then
     body.vel_y = jump_vel
+    body.acc_x = 0
     body.acc_y = JUMP_ACC
     body.jump_frames = nil
     body.mode = "falling"
