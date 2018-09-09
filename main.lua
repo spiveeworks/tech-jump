@@ -1,5 +1,5 @@
-tiles = {}
-level = {}
+local tiles = {}
+local level = {}
 
 function tiles.load(self, path)
   self.img = love.graphics.newImage(path)
