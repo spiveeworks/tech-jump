@@ -76,11 +76,7 @@ end
 function modes.walking(body)
   update_walk_direction(body)
   update_walk_velocity(body)
-  if love.keyboard.isDown("space") then
-    body.mode = "falling"
-    body.vel_y = JUMP_SPEED
-    body.acc_y = JUMP_ACC
-  end
+  update_jump_input(body)
 end
 
 function update_walk_direction(body)
@@ -118,6 +114,17 @@ function update_walk_velocity(body)
       body.vel_x = -speed
   else
       body.vel_x = speed
+  end
+end
+
+function update_jump_input(body)
+  if love.keyboard.isDown("z") then
+    body.jump_frames = (body.jump_frames or -1) + 1
+  elseif body.jump_frames then
+    body.mode = "falling"
+    body.vel_y = JUMP_SPEED
+    body.acc_y = JUMP_ACC
+    body.jump_frames = nil
   end
 end
 
