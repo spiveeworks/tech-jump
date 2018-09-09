@@ -33,6 +33,8 @@ end
 function bodies.generate(self)
   local player = {}
   player.x, player.y = 600, 350
+  player.vel_x, player.vel_y = 0, 0
+  player.acc_x, player.acc_y = 0, 1
   self[1] = player
 end
 
@@ -43,7 +45,19 @@ function love.load()
 end
 
 function love.update()
+  local floor = 16*32
+  for _, body in ipairs(bodies) do
+    body.x = body.x + body.vel_x
+    body.y = body.y + body.vel_y
+    body.vel_x = body.vel_x + body.acc_x
+    body.vel_y = body.vel_y + body.acc_y
 
+    if body.y > floor then
+        body.y = floor
+        body.vel_y = 0
+        body.acc_y = 0
+    end
+  end
 end
 
 function love.draw()
@@ -56,7 +70,7 @@ function love.draw()
     end
   end
 
-  for i, body in ipairs(bodies) do
+  for _, body in ipairs(bodies) do
     love.graphics.setColor(255, 255, 255)
     love.graphics.ellipse("fill", body.x, body.y, 16, 32)
   end
