@@ -33,6 +33,7 @@ end
 function bodies.generate(self)
   local player = {}
   player.mode = "falling"
+  player.next_mode = "walking"
   player.x, player.y = 600, 350
   player.vel_x, player.vel_y = 0, 0
   player.acc_x, player.acc_y = 0, 1
@@ -50,6 +51,7 @@ local FLOOR_HEIGHT = 16*32
 local WALK_SPEED = 5
 local RUN_SPEED = 10
 local RUN_WARMUP = 45
+local ABSORB_WARMUP = 10
 local JUMP_HEIGHT = -100
 local JUMP_TIME = 15
 
@@ -57,8 +59,13 @@ local JUMP_TIME = 15
 -- s(2*_t) = 0 => a = -u/_t
 --             => s = ut(1 - t/(2*_t))
 -- s(_t) = _s  => u = 2*_s/_t
-local JUMP_SPEED = 2 * JUMP_HEIGHT / JUMP_TIME
-local JUMP_ACC = - JUMP_SPEED / JUMP_TIME
+function solve_projectile(height, time)
+  local speed = 2 * height / time
+  local acc = - speed / time
+  return speed, acc
+end
+
+local JUMP_SPEED, JUMP_ACC = solve_projectile(JUMP_HEIGHT, JUMP_TIME)
 
 function modes.update(body)
   modes[body.mode](body)
@@ -66,7 +73,8 @@ end
 
 function modes.falling(body)
   if body.y > FLOOR_HEIGHT then
-    body.mode = "walking"
+    body.mode = body.next_mode
+    body.next_mode = nil
     body.y = FLOOR_HEIGHT
     body.vel_y = 0
     body.acc_y = 0
@@ -82,38 +90,42 @@ end
 function update_walk_direction(body)
   local l = love.keyboard.isDown("left")
   local r = love.keyboard.isDown("right")
-  if l and not r then
-    if not (body.dir == "left") then
+  if l == r then
+    body.dir = nil
+    body.walk_frames = nil
+  elseif body.vel_x == 0 then
+    if l and not (body.dir == "left") then
       body.dir = "left"
       body.walk_frames = 0
-    end
-  elseif r and not l then
-    if not (body.dir == "right") then
+    elseif r and not (body.dir == "right") then
       body.dir = "right"
       body.walk_frames = 0
     end
-  else
-    body.dir = nil
-    body.walk_frames = nil
   end
 end
 
 function update_walk_velocity(body)
-  local speed
   if body.dir then
+    local speed
     if body.walk_frames < RUN_WARMUP then
       speed = WALK_SPEED
       body.walk_frames = body.walk_frames + 1
     else
       speed = RUN_SPEED
     end
-  else
-    speed = 0
-  end
-  if body.dir == "left" then
+    if body.dir == "left" then
       body.vel_x = -speed
-  else
+    else
       body.vel_x = speed
+    end
+  else
+    if body.vel_x > 1 then
+      body.vel_x = body.vel_x - 0.3
+    elseif body.vel_x < -1 then
+      body.vel_x = body.vel_x + 0.3
+    else
+      body.vel_x = 0
+    end
   end
 end
 
@@ -122,10 +134,22 @@ function update_jump_input(body)
     body.jump_frames = (body.jump_frames or -1) + 1
   elseif body.jump_frames then
     body.mode = "falling"
-    body.vel_y = JUMP_SPEED
     body.acc_y = JUMP_ACC
+    if body.jump_frames > ABSORB_WARMUP then
+      body.next_mode = "braking"
+      body.vel_y = -3
+    else
+      body.next_mode = "walking"
+      body.vel_y = JUMP_SPEED
+    end
     body.jump_frames = nil
   end
+end
+
+function modes.braking(body)
+  body.vel_x = 0
+  body.mode = "walking"
+  body.walk_frames = body.walk_frames and 0
 end
 
 function love.update()
