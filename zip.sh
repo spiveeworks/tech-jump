@@ -7,4 +7,5 @@ else
     mkdir love
 fi
 
-zip -9 -r love/tj.love game/*
+cd game
+zip -9 -r ../love/tj.love .
