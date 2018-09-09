@@ -33,6 +33,7 @@ end
 function bodies.generate(self)
   local player = {}
   player.mode = "falling"
+  player.next_mode = "walking"
   player.x, player.y = 600, 350
   player.vel_x, player.vel_y = 0, 0
   player.acc_x, player.acc_y = 0, 1
@@ -47,7 +48,9 @@ end
 
 local modes = {}
 local FLOOR_HEIGHT = 16*32
-local WALK_SPEED = 10
+local RUN_SPEED = 10
+local RUN_ACC = 0.3
+local ABSORB_WARMUP = 10
 local JUMP_HEIGHT = -100
 local JUMP_TIME = 15
 
@@ -55,8 +58,14 @@ local JUMP_TIME = 15
 -- s(2*_t) = 0 => a = -u/_t
 --             => s = ut(1 - t/(2*_t))
 -- s(_t) = _s  => u = 2*_s/_t
-local JUMP_SPEED = 2 * JUMP_HEIGHT / JUMP_TIME
-local JUMP_ACC = - JUMP_SPEED / JUMP_TIME
+function solve_projectile(height, time)
+  local speed = 2 * height / time
+  local acc = - speed / time
+  return speed, acc
+end
+
+local JUMP_VEL, JUMP_ACC = solve_projectile(JUMP_HEIGHT, JUMP_TIME)
+local ABSORB_VEL = -3
 
 function modes.update(body)
   modes[body.mode](body)
@@ -65,24 +74,58 @@ end
 function modes.falling(body)
   if body.y > FLOOR_HEIGHT then
     body.mode = "walking"
+    body.next_mode = nil
     body.y = FLOOR_HEIGHT
+    body.vel_x = 0
     body.vel_y = 0
     body.acc_y = 0
   end
 end
 
 function modes.walking(body)
-  body.vel_x = 0
-  if love.keyboard.isDown("left") then
-    body.vel_x = -WALK_SPEED
+  update_walk_direction(body)
+  update_jump_input(body)
+end
+
+function update_walk_direction(body)
+  local l = love.keyboard.isDown("left")
+  local r = love.keyboard.isDown("right")
+
+  local dir = 0
+  if l and not r then
+    dir = -1
+  elseif r and not l then
+    dir = 1
+  elseif body.vel_x < -RUN_ACC then
+    dir = 1
+  elseif RUN_ACC < body.vel_x then
+    dir = -1
+  else
+    body.vel_x = 0
   end
-  if love.keyboard.isDown("right") then
-    body.vel_x = body.vel_x + WALK_SPEED
+  if dir * body.vel_x > RUN_SPEED then
+    body.vel_x = RUN_SPEED * dir
+    dir = 0
   end
-  if love.keyboard.isDown("space") then
-    body.mode = "falling"
-    body.vel_y = JUMP_SPEED
+  body.acc_x = dir * RUN_ACC
+end
+
+function update_jump_input(body)
+  local jump_vel = nil
+  if love.keyboard.isDown("z") then
+    body.jump_frames = (body.jump_frames or -1) + 1
+    if body.jump_frames > ABSORB_WARMUP then
+      jump_vel = ABSORB_VEL
+    end
+  elseif body.jump_frames then
+    jump_vel = JUMP_VEL
+  end
+  if jump_vel then
+    body.vel_y = jump_vel
+    body.acc_x = 0
     body.acc_y = JUMP_ACC
+    body.jump_frames = nil
+    body.mode = "falling"
   end
 end
 
