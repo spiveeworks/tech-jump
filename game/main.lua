@@ -47,7 +47,9 @@ end
 
 local modes = {}
 local FLOOR_HEIGHT = 16*32
-local WALK_SPEED = 10
+local WALK_SPEED = 5
+local RUN_SPEED = 10
+local RUN_WARMUP = 45
 local JUMP_HEIGHT = -100
 local JUMP_TIME = 15
 
@@ -72,17 +74,50 @@ function modes.falling(body)
 end
 
 function modes.walking(body)
-  body.vel_x = 0
-  if love.keyboard.isDown("left") then
-    body.vel_x = -WALK_SPEED
-  end
-  if love.keyboard.isDown("right") then
-    body.vel_x = body.vel_x + WALK_SPEED
-  end
+  update_walk_direction(body)
+  update_walk_velocity(body)
   if love.keyboard.isDown("space") then
     body.mode = "falling"
     body.vel_y = JUMP_SPEED
     body.acc_y = JUMP_ACC
+  end
+end
+
+function update_walk_direction(body)
+  local l = love.keyboard.isDown("left")
+  local r = love.keyboard.isDown("right")
+  if l and not r then
+    if not (body.dir == "left") then
+      body.dir = "left"
+      body.walk_frames = 0
+    end
+  elseif r and not l then
+    if not (body.dir == "right") then
+      body.dir = "right"
+      body.walk_frames = 0
+    end
+  else
+    body.dir = nil
+    body.walk_frames = nil
+  end
+end
+
+function update_walk_velocity(body)
+  local speed
+  if body.dir then
+    if body.walk_frames < RUN_WARMUP then
+      speed = WALK_SPEED
+      body.walk_frames = body.walk_frames + 1
+    else
+      speed = RUN_SPEED
+    end
+  else
+    speed = 0
+  end
+  if body.dir == "left" then
+      body.vel_x = -speed
+  else
+      body.vel_x = speed
   end
 end
 
