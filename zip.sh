@@ -1,2 +1,2 @@
 #/bin/sh
-7z a tj.love main.lua tileset.png
+7z a love/tj.love *.lua *.png
