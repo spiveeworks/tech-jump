@@ -48,9 +48,8 @@ end
 
 local modes = {}
 local FLOOR_HEIGHT = 16*32
-local WALK_SPEED = 5
 local RUN_SPEED = 10
-local RUN_WARMUP = 45
+local RUN_ACC = 0.3
 local ABSORB_WARMUP = 10
 local JUMP_HEIGHT = -100
 local JUMP_TIME = 15
@@ -80,56 +79,35 @@ function modes.falling(body)
     body.vel_x = 0
     body.vel_y = 0
     body.acc_y = 0
-    body.walk_frames = body.walk_frames and 0
   end
 end
 
 function modes.walking(body)
   update_walk_direction(body)
-  update_walk_velocity(body)
   update_jump_input(body)
 end
 
 function update_walk_direction(body)
   local l = love.keyboard.isDown("left")
   local r = love.keyboard.isDown("right")
-  if l == r then
-    body.dir = nil
-    body.walk_frames = nil
-  elseif body.vel_x == 0 then
-    if l and not (body.dir == "left") then
-      body.dir = "left"
-      body.walk_frames = 0
-    elseif r and not (body.dir == "right") then
-      body.dir = "right"
-      body.walk_frames = 0
-    end
-  end
-end
 
-function update_walk_velocity(body)
-  if body.dir then
-    local speed
-    if body.walk_frames < RUN_WARMUP then
-      speed = WALK_SPEED
-      body.walk_frames = body.walk_frames + 1
-    else
-      speed = RUN_SPEED
-    end
-    if body.dir == "left" then
-      body.vel_x = -speed
-    else
-      body.vel_x = speed
-    end
+  local dir = 0
+  if l and not r then
+    dir = -1
+  elseif r and not l then
+    dir = 1
+  elseif body.vel_x < -RUN_ACC then
+    dir = 1
+  elseif RUN_ACC < body.vel_x then
+    dir = -1
   else
-    if body.vel_x > 1 then
-      body.vel_x = body.vel_x - 0.3
-    elseif body.vel_x < -1 then
-      body.vel_x = body.vel_x + 0.3
-    else
-      body.vel_x = 0
-    end
+    body.vel_x = 0
   end
+  if dir * body.vel_x > RUN_SPEED then
+    body.vel_x = RUN_SPEED * dir
+    dir = 0
+  end
+  body.acc_x = dir * RUN_ACC
 end
 
 function update_jump_input(body)
