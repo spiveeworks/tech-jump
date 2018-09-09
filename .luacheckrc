@@ -1,2 +1,2 @@
 allow_defined = true
-std = "love"
+std = { globals = { "love" }, read_globals = {"ipairs"} }
