@@ -1,2 +1,2 @@
 allow_defined = true
-std = "love"
+std = "_G love"

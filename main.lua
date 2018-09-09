@@ -1,5 +1,6 @@
 local tiles = {}
 local level = {}
+local bodies = {}
 
 function tiles.load(self, path)
   self.img = love.graphics.newImage(path)
@@ -29,11 +30,21 @@ function level.generate(self)
   end
 end
 
+function bodies.generate(self)
+  local player = {}
+  player.x, player.y = 600, 350
+  self[1] = player
+end
+
 function love.load()
   tiles:load('tileset.png')
   level:generate()
+  bodies:generate()
 end
 
+function love.update()
+
+end
 
 function love.draw()
   for x = 1, level.width do
@@ -43,5 +54,10 @@ function love.draw()
         love.graphics.draw(tiles.img, tiles.quads[id], (x - 1) * 32, (y - 1) * 32)
       end
     end
+  end
+
+  for i, body in ipairs(bodies) do
+    love.graphics.setColor(255, 255, 255)
+    love.graphics.ellipse("fill", body.x, body.y, 16, 32)
   end
 end
