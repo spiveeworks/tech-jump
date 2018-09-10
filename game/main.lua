@@ -51,30 +51,43 @@ local FLOOR_HEIGHT = 16*32
 local RUN_SPEED = 10
 local RUN_ACC = 0.3
 local JUMP_WARMUP = 10
-local JUMP_HEIGHT = -100
+local JUMP_HEIGHT = -64
+local PUNCH_HEIGHT = -128
+local PUNCH_COEFF = 0.3  -- reduces horizontal speed during punch :)
 local JUMP_TIME = 15
 local ABSORB_DIST = 16
 local MAX_ABSORB_TIME = 15
+local STAND_FRAMES = 5
+local REDIRECT_SPEED = 2.5
 
 -- s(t) = 1/2 at^2 + ut
 -- s(2*_t) = 0 => u = -a*_t
 --             => s = at(t/2 - _t)
+function vel_from_acc_time(acc, time)
+  return -acc * time
+end
+
 -- s(_t) = _s => a = -2*_s/(_t^2)
 function acc_from_arc(height, time)
   return -2 * height / (time * time)
 end
 
-function vel_from_acc(acc, time)
-  return -acc * time
+-- _t = -u / a, s(_t) = _s
+-- => _s = 1/2 a (-u/a)^2 + u (-u/a)
+--       = (u^2/a)(1/2 - 1)
+-- => u = sqrt(-2*_s*a)
+function vel_from_acc_height(acc, height)
+  return -math.sqrt(-2*height*acc)
 end
 
 function from_arc(height, time)
   local acc = acc_from_arc(height, time)
-  local vel = vel_from_acc(acc, time)
+  local vel = vel_from_acc_time(acc, time)
   return acc, vel
 end
 
 local JUMP_ACC, JUMP_VEL = from_arc(JUMP_HEIGHT, JUMP_TIME)
+local PUNCH_VEL = vel_from_acc_height(JUMP_ACC, PUNCH_HEIGHT)
 
 function modes.update(body)
   modes[body.mode](body)
@@ -82,13 +95,38 @@ end
 
 function modes.falling(body)
   if body.y > FLOOR_HEIGHT then
-    body.mode = "walking"
-    body.next_mode = nil
+    body.mode = "redirect"
     body.y = FLOOR_HEIGHT
-    body.vel_x = 0
-    body.vel_y = 0
+    body.prev_vel_x, body.prev_vel_y = body.vel_x, body.vel_y
+    body.vel_x, body.vel_y = 0, 0
     body.acc_y = 0
+    body.stand_frames = 0
   end
+end
+
+function modes.redirect(body)
+  if body.stand_frames > STAND_FRAMES then
+    body.stand_frames = nil
+    perform_redirect(body)
+  else
+    body.stand_frames = body.stand_frames + 1
+  end
+end
+
+function perform_redirect(body)
+  local dir = keyboard_walk_direction()
+  if dir * body.prev_vel_x > 0 then
+    body.vel_x = body.prev_vel_x
+  else
+    body.vel_x = REDIRECT_SPEED * dir
+  end
+  if love.keyboard.isDown("z") then
+    start_jump(body, PUNCH_VEL)
+    body.vel_x = body.vel_x * PUNCH_COEFF
+  else
+    body.mode = "walking"
+  end
+  body.prev_vel_x, body.prev_vel_y = nil, nil
 end
 
 function modes.walking(body)
@@ -96,21 +134,30 @@ function modes.walking(body)
   update_jump_input(body)
 end
 
-function update_walk_direction(body)
+function keyboard_walk_direction()
   local l = love.keyboard.isDown("left")
   local r = love.keyboard.isDown("right")
 
-  local dir = 0
   if l and not r then
-    dir = -1
+    return -1
   elseif r and not l then
-    dir = 1
-  elseif body.vel_x < -RUN_ACC then
-    dir = 1
-  elseif RUN_ACC < body.vel_x then
-    dir = -1
+    return 1
   else
-    body.vel_x = 0
+    return 0
+  end
+end
+
+function update_walk_direction(body)
+  local dir = keyboard_walk_direction()
+
+  if dir == 0 then
+    if body.vel_x < -RUN_ACC then
+      dir = 1
+    elseif RUN_ACC < body.vel_x then
+      dir = -1
+    else
+      body.vel_x = 0
+    end
   end
   if dir * body.vel_x > RUN_SPEED then
     body.vel_x = RUN_SPEED * dir
@@ -134,15 +181,19 @@ function update_jump_input(body)
     if absorb_time > MAX_ABSORB_TIME then
       absorb_time = MAX_ABSORB_TIME
     end
-    jump_vel = vel_from_acc(JUMP_ACC, absorb_time)
+    jump_vel = vel_from_acc_time(JUMP_ACC, absorb_time)
   end
   if jump_vel then
-    body.vel_y = jump_vel
-    body.acc_x = 0
-    body.acc_y = JUMP_ACC
-    body.jump_frames = nil
-    body.mode = "falling"
+    start_jump(body, jump_vel)
   end
+end
+
+function start_jump(body, vel)
+  body.vel_y = vel
+  body.acc_x = 0
+  body.acc_y = JUMP_ACC
+  body.jump_frames = nil
+  body.mode = "falling"
 end
 
 function love.update()
