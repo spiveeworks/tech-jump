@@ -50,22 +50,31 @@ local modes = {}
 local FLOOR_HEIGHT = 16*32
 local RUN_SPEED = 10
 local RUN_ACC = 0.3
-local ABSORB_WARMUP = 10
+local JUMP_WARMUP = 10
 local JUMP_HEIGHT = -100
 local JUMP_TIME = 15
+local ABSORB_DIST = 16
+local MAX_ABSORB_TIME = 15
 
 -- s(t) = 1/2 at^2 + ut
--- s(2*_t) = 0 => a = -u/_t
---             => s = ut(1 - t/(2*_t))
--- s(_t) = _s  => u = 2*_s/_t
-function solve_projectile(height, time)
-  local speed = 2 * height / time
-  local acc = - speed / time
-  return speed, acc
+-- s(2*_t) = 0 => u = -a*_t
+--             => s = at(t/2 - _t)
+-- s(_t) = _s => a = -2*_s/(_t^2)
+function acc_from_arc(height, time)
+  return -2 * height / (time * time)
 end
 
-local JUMP_VEL, JUMP_ACC = solve_projectile(JUMP_HEIGHT, JUMP_TIME)
-local ABSORB_VEL = -3
+function vel_from_acc(acc, time)
+  return -acc * time
+end
+
+function from_arc(height, time)
+  local acc = acc_from_arc(height, time)
+  local vel = vel_from_acc(acc, time)
+  return acc, vel
+end
+
+local JUMP_ACC, JUMP_VEL = from_arc(JUMP_HEIGHT, JUMP_TIME)
 
 function modes.update(body)
   modes[body.mode](body)
@@ -114,11 +123,18 @@ function update_jump_input(body)
   local jump_vel = nil
   if love.keyboard.isDown("z") then
     body.jump_frames = (body.jump_frames or -1) + 1
-    if body.jump_frames > ABSORB_WARMUP then
+    if body.jump_frames > JUMP_WARMUP then
       jump_vel = JUMP_VEL
     end
   elseif body.jump_frames then
-    jump_vel = ABSORB_VEL
+    local absorb_time = ABSORB_DIST / body.vel_x
+    if absorb_time < 0 then
+      absorb_time = -absorb_time
+    end
+    if absorb_time > MAX_ABSORB_TIME then
+      absorb_time = MAX_ABSORB_TIME
+    end
+    jump_vel = vel_from_acc(JUMP_ACC, absorb_time)
   end
   if jump_vel then
     body.vel_y = jump_vel
