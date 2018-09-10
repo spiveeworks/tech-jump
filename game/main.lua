@@ -48,17 +48,17 @@ end
 
 local modes = {}
 local FLOOR_HEIGHT = 16*32
-local RUN_SPEED = 10
+local RUN_SPEED = 12
 local RUN_ACC = 0.3
 local JUMP_WARMUP = 10
 local JUMP_HEIGHT = -64
 local PUNCH_HEIGHT = -128
 local PUNCH_COEFF = 0.3  -- reduces horizontal speed during punch :)
 local JUMP_TIME = 15
-local ABSORB_DIST = 16
-local MAX_ABSORB_TIME = 15
+local ABSORB_DIST = 48
+local MAX_ABSORB_TIME = JUMP_TIME
 local STAND_FRAMES = 5
-local REDIRECT_SPEED = 2.5
+local REDIRECT_SPEED = RUN_SPEED / 4
 
 -- s(t) = 1/2 at^2 + ut
 -- s(2*_t) = 0 => u = -a*_t
