@@ -115,10 +115,10 @@ function update_jump_input(body)
   if love.keyboard.isDown("z") then
     body.jump_frames = (body.jump_frames or -1) + 1
     if body.jump_frames > ABSORB_WARMUP then
-      jump_vel = ABSORB_VEL
+      jump_vel = JUMP_VEL
     end
   elseif body.jump_frames then
-    jump_vel = JUMP_VEL
+    jump_vel = ABSORB_VEL
   end
   if jump_vel then
     body.vel_y = jump_vel
