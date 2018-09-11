@@ -50,6 +50,7 @@ local modes = {}
 local FLOOR_HEIGHT = 16*32
 local RUN_SPEED = 12
 local RUN_ACC = 0.3
+local STANDING_JUMP_SPEED = 3
 local JUMP_WARMUP = 10
 local JUMP_HEIGHT = -64
 local PUNCH_HEIGHT = -128
@@ -57,8 +58,8 @@ local PUNCH_SPEED = 3
 local PUNCH_THRESHOLD = 10
 local BOUNCE_THRESHOLD = 4
 local JUMP_TIME = 15
-local ABSORB_DIST = 48
-local MAX_ABSORB_TIME = JUMP_TIME
+local HOP_DIST = 48
+local HOP_THRESHOLD = 3  -- 10 frames
 local STAND_FRAMES = 5
 
 -- s(t) = 1/2 at^2 + ut
@@ -205,17 +206,19 @@ function update_jump_input(body)
     body.jump_frames = (body.jump_frames or -1) + 1
     if body.jump_frames > JUMP_WARMUP then
       jump_vel = JUMP_VEL
+      body.jump_frames = nil
+      if math.abs(body.vel_x) < HOP_THRESHOLD then
+        body.vel_x = STANDING_JUMP_SPEED * keyboard_walk_direction()
+      end
     end
   elseif body.jump_frames then
-    local absorb_time = ABSORB_DIST / body.vel_x
-    if absorb_time < 0 then
-      absorb_time = -absorb_time
+    local speed = math.abs(body.vel_x)
+    body.jump_frames = nil
+    if speed >= HOP_THRESHOLD then
+      local hop_time = HOP_DIST / speed
+      jump_vel = vel_from_acc_time(JUMP_ACC, hop_time)
+      body.is_hopping = true
     end
-    if absorb_time > MAX_ABSORB_TIME then
-      absorb_time = MAX_ABSORB_TIME
-    end
-    jump_vel = vel_from_acc_time(JUMP_ACC, absorb_time)
-    body.is_hopping = true
   end
   if jump_vel then
     start_jump(body, jump_vel)
@@ -226,7 +229,6 @@ function start_jump(body, vel)
   body.vel_y = vel
   body.acc_x = 0
   body.acc_y = JUMP_ACC
-  body.jump_frames = nil
   body.mode = "falling"
 end
 
