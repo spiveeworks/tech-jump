@@ -41,6 +41,7 @@ function bodies.generate(self)
   player.mode = "falling"
   player.next_mode = "walking"
   player.x, player.y = 600, 350
+  player.width, player.height = 32, 64
   player.vel_x, player.vel_y = 0, 0
   player.acc_x, player.acc_y = 0, 1
   self[1] = player
@@ -238,12 +239,16 @@ function start_jump(body, vel)
   body.mode = "falling"
 end
 
+function do_physics(body)
+  body.x = body.x + body.vel_x
+  body.y = body.y + body.vel_y
+  body.vel_x = body.vel_x + body.acc_x
+  body.vel_y = body.vel_y + body.acc_y
+end
+
 function love.update()
   for _, body in ipairs(bodies) do
-    body.x = body.x + body.vel_x
-    body.y = body.y + body.vel_y
-    body.vel_x = body.vel_x + body.acc_x
-    body.vel_y = body.vel_y + body.acc_y
+    do_physics(body)
 
     modes.update(body)
   end
@@ -261,6 +266,6 @@ function love.draw()
 
   for _, body in ipairs(bodies) do
     love.graphics.setColor(255, 255, 255)
-    love.graphics.ellipse("fill", body.x, body.y, 16, 32)
+    love.graphics.ellipse("fill", body.x, body.y, body.width/2, body.height/2)
   end
 end
