@@ -53,12 +53,13 @@ local RUN_ACC = 0.3
 local JUMP_WARMUP = 10
 local JUMP_HEIGHT = -64
 local PUNCH_HEIGHT = -128
-local PUNCH_COEFF = 0.3  -- reduces horizontal speed during punch :)
+local PUNCH_SPEED = 3
+local PUNCH_THRESHOLD = 8
+local BOUNCE_THRESHOLD = 4
 local JUMP_TIME = 15
 local ABSORB_DIST = 48
 local MAX_ABSORB_TIME = JUMP_TIME
 local STAND_FRAMES = 5
-local REDIRECT_SPEED = RUN_SPEED / 4
 
 -- s(t) = 1/2 at^2 + ut
 -- s(2*_t) = 0 => u = -a*_t
@@ -93,39 +94,67 @@ function modes.update(body)
   modes[body.mode](body)
 end
 
+function is_jump_down()
+  return love.keyboard.isDown("z")
+end
+
 function modes.falling(body)
   if body.y > FLOOR_HEIGHT then
-    body.mode = "redirect"
     body.y = FLOOR_HEIGHT
-    body.prev_vel_x, body.prev_vel_y = body.vel_x, body.vel_y
-    body.vel_x, body.vel_y = 0, 0
-    body.acc_y = 0
-    body.stand_frames = 0
+    if not body.pressed_z then
+      body.z_released = nil
+      body.mode = "walking"
+      if body.next_speed then
+        body.vel_x = body.next_speed
+      end
+      body.vel_y = 0
+      body.acc_y = 0
+    elseif math.abs(body.vel_x) >= PUNCH_THRESHOLD
+        and body.vel_y <= BOUNCE_THRESHOLD then
+      if body.vel_x > 0 then
+        body.vel_x = PUNCH_SPEED
+      else
+        body.vel_x = -PUNCH_SPEED
+      end
+      body.z_released = nil
+      start_jump(body, PUNCH_VEL)
+    else
+      body.prev_vel_x, body.prev_vel_y = body.vel_x, body.vel_y
+      body.vel_x, body.vel_y = 0, 0
+      body.acc_y = 0
+      body.mode = "redirect"
+    end
+    body.pressed_z = nil
+    body.next_speed = nil
+  elseif not is_jump_down() and not body.z_released then
+    body.z_released = true
+  elseif is_jump_down() and body.z_released then
+    body.pressed_z = true
+    body.z_released = false
   end
 end
 
 function modes.redirect(body)
+  body.stand_frames = (body.stand_frames or -1) + 1
   if body.stand_frames > STAND_FRAMES then
     body.stand_frames = nil
+    body.z_released = nil
     perform_redirect(body)
-  else
-    body.stand_frames = body.stand_frames + 1
+  elseif not is_jump_down() and not body.z_released then
+    body.z_released = true
+  elseif is_jump_down and body.z_released then
+    body.bounce = true
+    body.z_released = false
   end
 end
 
 function perform_redirect(body)
-  local dir = keyboard_walk_direction()
-  if dir * body.prev_vel_x > 0 then
-    body.vel_x = body.prev_vel_x
+  if body.bounce then
+    body.bounce = nil
   else
-    body.vel_x = REDIRECT_SPEED * dir
+    body.vel_x = 0
   end
-  if love.keyboard.isDown("z") then
-    start_jump(body, PUNCH_VEL)
-    body.vel_x = body.vel_x * PUNCH_COEFF
-  else
-    body.mode = "walking"
-  end
+  body.mode = "walking"
   body.prev_vel_x, body.prev_vel_y = nil, nil
 end
 
@@ -168,7 +197,7 @@ end
 
 function update_jump_input(body)
   local jump_vel = nil
-  if love.keyboard.isDown("z") then
+  if is_jump_down() then
     body.jump_frames = (body.jump_frames or -1) + 1
     if body.jump_frames > JUMP_WARMUP then
       jump_vel = JUMP_VEL
@@ -182,6 +211,7 @@ function update_jump_input(body)
       absorb_time = MAX_ABSORB_TIME
     end
     jump_vel = vel_from_acc_time(JUMP_ACC, absorb_time)
+    body.next_speed = 0
   end
   if jump_vel then
     start_jump(body, jump_vel)
