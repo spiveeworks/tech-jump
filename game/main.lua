@@ -28,6 +28,12 @@ function level.generate(self)
     self[x][self.height - 1] = 1
     self[x][self.height] = 1
   end
+  for y = 1, self.height do
+    self[1][y] = 1
+    self[self.width][y] = 1
+  end
+  self[24][15] = 1
+  self[23][14] = 1
 end
 
 function bodies.generate(self)
