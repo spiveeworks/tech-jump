@@ -299,21 +299,32 @@ function love.update()
   end
 end
 
+-- could be a method of tiles
+-- in fact the whole draw procedure could be split up into two methods
+function draw_tile(img, quad, tx, ty)
+  local px, py = pixel_from_tile(tx), pixel_from_tile(ty)
+  love.graphics.draw(img, quad, px, py)
+end
+
+function draw_body(x, y, width, height)
+  local rx = width/2
+  local ry = height/2
+  love.graphics.ellipse("fill", x + rx, y + ry, rx, ry)
+end
+
 function love.draw()
   love.graphics.print(debug or "", 60, 10)
   for x = 1, level.width do
     for y = 1, level.height do
       local id = level[x][y]
       if id then
-        love.graphics.draw(tiles.img, tiles.quads[id], (x - 1) * 32, (y - 1) * 32)
+        draw_tile(tiles.img, tiles.quads[id], x, y)
       end
     end
   end
 
+  love.graphics.setColor(255, 255, 255)
   for _, body in ipairs(bodies) do
-    love.graphics.setColor(255, 255, 255)
-    local rx = body.width/2
-    local ry = body.height/2
-    love.graphics.ellipse("fill", body.x + rx, body.y + ry, rx, ry)
+    draw_body(body.x, body.y, body.width, body.height)
   end
 end
