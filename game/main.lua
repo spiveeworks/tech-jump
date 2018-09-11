@@ -312,6 +312,8 @@ function love.draw()
 
   for _, body in ipairs(bodies) do
     love.graphics.setColor(255, 255, 255)
-    love.graphics.ellipse("fill", body.x, body.y, body.width/2, body.height/2)
+    local rx = body.width/2
+    local ry = body.height/2
+    love.graphics.ellipse("fill", body.x + rx, body.y + ry, rx, ry)
   end
 end
