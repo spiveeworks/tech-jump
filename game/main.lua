@@ -55,7 +55,6 @@ function love.load()
 end
 
 local modes = {}
-local FLOOR_HEIGHT = 16*32
 local RUN_SPEED = 12
 local RUN_ACC = 0.3
 local STANDING_JUMP_SPEED = 3
@@ -107,38 +106,39 @@ function is_jump_down()
   return love.keyboard.isDown("z")
 end
 
-function modes.falling(body)
-  if body.y > FLOOR_HEIGHT and false then
-    body.y = FLOOR_HEIGHT
-    if not body.pressed_z then
-      body.z_released = nil
-      body.mode = "walking"
-      if body.is_hopping then
-        body.vel_x = 0
-      end
-      body.vel_y = 0
-      body.acc_y = 0
-    elseif math.abs(body.vel_x) >= PUNCH_THRESHOLD
-        and body.vel_y <= BOUNCE_THRESHOLD then
-      if body.vel_x > 0 then
-        body.vel_x = PUNCH_SPEED
-      else
-        body.vel_x = -PUNCH_SPEED
-      end
-      body.z_released = nil
-      start_jump(body, PUNCH_VEL)
-    else
-      body.prev_vel_x, body.prev_vel_y = body.vel_x, body.vel_y
-      if not body.is_hopping then
-        body.vel_x = 0
-      end
-      body.vel_y = 0
-      body.acc_y = 0
-      body.mode = "redirect"
+function hit_floor(body)
+  if not body.pressed_z then
+    body.z_released = nil
+    body.mode = "walking"
+    if body.is_hopping then
+      body.vel_x = 0
     end
-    body.pressed_z = nil
-    body.is_hopping = nil
-  elseif not is_jump_down() and not body.z_released then
+    body.vel_y = 0
+    body.acc_y = 0
+  elseif math.abs(body.vel_x) >= PUNCH_THRESHOLD
+      and body.vel_y <= BOUNCE_THRESHOLD then
+    if body.vel_x > 0 then
+      body.vel_x = PUNCH_SPEED
+    else
+      body.vel_x = -PUNCH_SPEED
+    end
+    body.z_released = nil
+    start_jump(body, PUNCH_VEL)
+  else
+    body.prev_vel_x, body.prev_vel_y = body.vel_x, body.vel_y
+    if not body.is_hopping then
+      body.vel_x = 0
+    end
+    body.vel_y = 0
+    body.acc_y = 0
+    body.mode = "redirect"
+  end
+  body.pressed_z = nil
+  body.is_hopping = nil
+end
+
+function modes.falling(body)
+  if not is_jump_down() and not body.z_released then
     body.z_released = true
   elseif is_jump_down() and body.z_released then
     body.pressed_z = true
@@ -240,11 +240,6 @@ function start_jump(body, vel)
   body.mode = "falling"
 end
 
-function hit_floor(body)
-  body.vel_y = 0
-  body.acc_y = 0
-end
-
 function try_collide(body, ty)
   local tx_min = tile_from_pixel(body.x)
   local tx_max = tile_from_pixel(body.x + body.width)  -- can stand on walls?
@@ -271,22 +266,26 @@ end
 
 function do_physics(body)
   local simulation_left = 1
-  while simulation_left > 0 do
+  local done = false
+  while not done do
     if body.vel_y > 0 then
       local feet = body.y + body.height
       local next_tile = tile_from_pixel(feet) + 1
       local coll_time = (pixel_from_tile(next_tile) - feet) / body.vel_y
-      local simulate = math.min(simulation_left, coll_time)
-      body.x = body.x + body.vel_x * simulate
-      body.y = body.y + body.vel_y * simulate
-      if simulate == coll_time then
+      if coll_time <= simulation_left then
+        body.x = body.x + body.vel_x * coll_time
+        body.y = body.y + body.vel_y * coll_time
         try_collide(body, next_tile)
+        simulation_left = simulation_left - coll_time
+      else
+        done = true
       end
-      simulation_left = simulation_left - simulate
     else
-      simulation_left = 0
+      done = true
     end
   end
+  body.x = body.x + body.vel_x * simulation_left
+  body.y = body.y + body.vel_y * simulation_left
   body.vel_x = body.vel_x + body.acc_x
   body.vel_y = body.vel_y + body.acc_y
 end
