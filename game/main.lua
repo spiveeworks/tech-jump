@@ -145,7 +145,7 @@ function modes.redirect(body)
     perform_redirect(body)
   elseif not is_jump_down() and not body.z_released then
     body.z_released = true
-  elseif is_jump_down and body.z_released then
+  elseif is_jump_down() and body.z_released then
     body.bounce = true
     body.z_released = false
   end
@@ -154,10 +154,11 @@ end
 function perform_redirect(body)
   if body.bounce then
     body.bounce = nil
+    body.vel_x = body.prev_vel_x
+    start_jump(body, -body.prev_vel_y)
   else
-    body.vel_x = 0
+    body.mode = "walking"
   end
-  body.mode = "walking"
   body.prev_vel_x, body.prev_vel_y = nil, nil
 end
 
