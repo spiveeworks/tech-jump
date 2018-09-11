@@ -54,7 +54,7 @@ local JUMP_WARMUP = 10
 local JUMP_HEIGHT = -64
 local PUNCH_HEIGHT = -128
 local PUNCH_SPEED = 3
-local PUNCH_THRESHOLD = 8
+local PUNCH_THRESHOLD = 10
 local BOUNCE_THRESHOLD = 4
 local JUMP_TIME = 15
 local ABSORB_DIST = 48
@@ -104,8 +104,8 @@ function modes.falling(body)
     if not body.pressed_z then
       body.z_released = nil
       body.mode = "walking"
-      if body.next_speed then
-        body.vel_x = body.next_speed
+      if body.is_hopping then
+        body.vel_x = 0
       end
       body.vel_y = 0
       body.acc_y = 0
@@ -120,12 +120,15 @@ function modes.falling(body)
       start_jump(body, PUNCH_VEL)
     else
       body.prev_vel_x, body.prev_vel_y = body.vel_x, body.vel_y
-      body.vel_x, body.vel_y = 0, 0
+      if not body.is_hopping then
+        body.vel_x = 0
+      end
+      body.vel_y = 0
       body.acc_y = 0
       body.mode = "redirect"
     end
     body.pressed_z = nil
-    body.next_speed = nil
+    body.is_hopping = nil
   elseif not is_jump_down() and not body.z_released then
     body.z_released = true
   elseif is_jump_down() and body.z_released then
@@ -211,7 +214,7 @@ function update_jump_input(body)
       absorb_time = MAX_ABSORB_TIME
     end
     jump_vel = vel_from_acc_time(JUMP_ACC, absorb_time)
-    body.next_speed = 0
+    body.is_hopping = true
   end
   if jump_vel then
     start_jump(body, jump_vel)
