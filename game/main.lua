@@ -44,6 +44,7 @@ function bodies.generate(self)
   player.width, player.height = 32, 64
   player.vel_x, player.vel_y = 0, 0
   player.acc_x, player.acc_y = 0, 1
+  player.hit_floor = hit_floor
   self[1] = player
 end
 
@@ -239,28 +240,42 @@ function start_jump(body, vel)
   body.mode = "falling"
 end
 
+function hit_floor(body)
+  body.vel_y = 0
+  body.acc_y = 0
+end
+
 function try_collide(body, ty)
-  local tx = math.floor(body.x)
+  local tx_min = tile_from_pixel(body.x)
+  local tx_max = tile_from_pixel(body.x + body.width)  -- can stand on walls?
   local collided = false
-  while tx < math.ceil(body.x + body.width) do
+  for tx = tx_min, tx_max do
     local col = level[tx] or {}
     local tile = col[ty]
     if tile == 1 then  -- probably nil otherwise
       collided = true
     end
-    tx = tx + 1
   end
   if collided then
-    body.hit_floor()
+    body:hit_floor()
   end
+end
+
+function tile_from_pixel(x)
+  return math.floor(x/32) + 1
+end
+
+function pixel_from_tile(x)
+  return (x - 1) * 32
 end
 
 function do_physics(body)
   local simulation_left = 1
   while simulation_left > 0 do
     if body.vel_y > 0 then
-      local next_tile = math.floor(body.y + body.height) + 1
-      local coll_time = (next_tile - body.y) / body.vel_y
+      local feet = body.y + body.height
+      local next_tile = tile_from_pixel(feet) + 1
+      local coll_time = (pixel_from_tile(next_tile) - feet) / body.vel_y
       local simulate = math.min(simulation_left, coll_time)
       body.x = body.x + body.vel_x * simulate
       body.y = body.y + body.vel_y * simulate
@@ -285,6 +300,7 @@ function love.update()
 end
 
 function love.draw()
+  love.graphics.print(debug or "", 60, 10)
   for x = 1, level.width do
     for y = 1, level.height do
       local id = level[x][y]
