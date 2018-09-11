@@ -107,7 +107,7 @@ function is_jump_down()
 end
 
 function modes.falling(body)
-  if body.y > FLOOR_HEIGHT then
+  if body.y > FLOOR_HEIGHT and false then
     body.y = FLOOR_HEIGHT
     if not body.pressed_z then
       body.z_released = nil
@@ -239,9 +239,39 @@ function start_jump(body, vel)
   body.mode = "falling"
 end
 
+function try_collide(body, ty)
+  local tx = math.floor(body.x)
+  local collided = false
+  while tx < math.ceil(body.x + body.width) do
+    local col = level[tx] or {}
+    local tile = col[ty]
+    if tile == 1 then  -- probably nil otherwise
+      collided = true
+    end
+    tx = tx + 1
+  end
+  if collided then
+    body.hit_floor()
+  end
+end
+
 function do_physics(body)
-  body.x = body.x + body.vel_x
-  body.y = body.y + body.vel_y
+  local simulation_left = 1
+  while simulation_left > 0 do
+    if body.vel_y > 0 then
+      local next_tile = math.floor(body.y + body.height) + 1
+      local coll_time = (next_tile - body.y) / body.vel_y
+      local simulate = math.min(simulation_left, coll_time)
+      body.x = body.x + body.vel_x * simulate
+      body.y = body.y + body.vel_y * simulate
+      if simulate == coll_time then
+        try_collide(body, next_tile)
+      end
+      simulation_left = simulation_left - simulate
+    else
+      simulation_left = 0
+    end
+  end
   body.vel_x = body.vel_x + body.acc_x
   body.vel_y = body.vel_y + body.acc_y
 end
