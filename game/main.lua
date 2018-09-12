@@ -260,6 +260,10 @@ function tile_from_pixel(x)
   return math.floor(x/32) + 1
 end
 
+function tile_after_pixel(x)
+  return math.ceil(x/32) + 1
+end
+
 function pixel_from_tile(x)
   return (x - 1) * 32
 end
@@ -268,14 +272,23 @@ function do_physics(body)
   local simulation_left = 1
   local done = false
   while not done do
+    local next_tile, coll_tile, coll_pixel
     if body.vel_y > 0 then
-      local feet = body.y + body.height
-      local next_tile = tile_from_pixel(feet) + 1
-      local coll_time = (pixel_from_tile(next_tile) - feet) / body.vel_y
-      if coll_time <= simulation_left then
+      coll_pixel = body.y + body.height
+      next_tile = tile_from_pixel(coll_pixel) + 1
+      coll_tile = next_tile
+    elseif body.vel_y < 0 then
+      coll_pixel = body.y
+      next_tile = tile_after_pixel(coll_pixel) - 1
+      coll_tile = next_tile - 1
+    end
+    -- else nils
+    if coll_tile then
+      local coll_time = (pixel_from_tile(next_tile) - coll_pixel) / body.vel_y
+      if coll_time < simulation_left then
         body.x = body.x + body.vel_x * coll_time
         body.y = body.y + body.vel_y * coll_time
-        try_collide(body, next_tile)
+        try_collide(body, coll_tile)
         simulation_left = simulation_left - coll_time
       else
         done = true
