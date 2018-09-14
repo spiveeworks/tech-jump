@@ -42,7 +42,8 @@ function bodies.generate(self)
   player.mode = "falling"
   player.next_mode = "walking"
   player.x, player.y = 600, 479
-  player.width, player.height = 32, 64
+  player.xb = { [-1] = 0, [1] = 32 }
+  player.yb = { [-1] = 0, [1] = 64 }
   player.vel_x, player.vel_y = -10, 1
   player.acc_x, player.acc_y = 0, 1
   player.hit_floor = hit_floor
@@ -242,8 +243,8 @@ function start_jump(body, vel)
 end
 
 function try_collide(body, ty)
-  local tx_min = tile_from_pixel(body.x)
-  local tx_max = tile_after_pixel(body.x + body.width) - 1
+  local tx_min = tile_from_pixel(body.x + body.xb[-1])
+  local tx_max = tile_after_pixel(body.x + body.xb[1]) - 1
   local collided = false
   for tx = tx_min, tx_max do
     local col = level[tx] or {}
@@ -269,25 +270,30 @@ function pixel_from_tile(x)
   return x * 32
 end
 
+function sgn(x)
+  return x / math.abs(x)
+end
+
+function collision(pos, vel, bounds)
+  local sgn = sgn(vel)
+  local edge = pos + bounds[sgn]
+  local next_tile = sgn*(tile_from_pixel(sgn*edge) + 1)
+  local coll_tile = next_tile
+  if sgn == -1 then
+    coll_tile = coll_tile - 1
+  end
+  return edge, next_tile, coll_tile
+end
+
 function do_physics(body)
   local simulation_left = 1
   new_x = body.x + body.vel_x * simulation_left
   new_y = body.y + body.vel_y * simulation_left
   local done = false
   while not done do
-    local next_tile, coll_tile, coll_pixel
-    if body.vel_y > 0 then
-      coll_pixel = body.y + body.height
-      next_tile = tile_from_pixel(coll_pixel) + 1
-      coll_tile = next_tile
-    elseif body.vel_y < 0 then
-      coll_pixel = body.y
-      next_tile = tile_after_pixel(coll_pixel) - 1
-      coll_tile = next_tile - 1
-    end
-    -- else nils
-    if coll_tile then
-      local coll_time = (pixel_from_tile(next_tile) - coll_pixel) / body.vel_y
+    if not (body.vel_y == 0) then
+      local edge, next_tile, coll_tile = collision(body.y, body.vel_y, body.yb)
+      local coll_time = (pixel_from_tile(next_tile) - edge) / body.vel_y
       if coll_time <= simulation_left then
         body.x = body.x + body.vel_x * coll_time
         body.y = body.y + body.vel_y * coll_time
@@ -328,7 +334,11 @@ function draw_tile(img, quad, tx, ty)
   love.graphics.draw(img, quad, px, py)
 end
 
-function draw_body(x, y, width, height)
+function draw_body(body)
+  local left, right = body.xb[-1], body.xb[1]
+  local top, bottom = body.yb[-1], body.yb[1]
+  local width, height = right - left, bottom - top
+  local x, y = body.x - left, body.y - top
   local rx = width/2
   local ry = height/2
   love.graphics.ellipse("fill", x + rx, y + ry, rx, ry)
@@ -347,6 +357,6 @@ function love.draw()
 
   love.graphics.setColor(255, 255, 255)
   for _, body in ipairs(bodies) do
-    draw_body(body.x, body.y, body.width, body.height)
+    draw_body(body)
   end
 end
