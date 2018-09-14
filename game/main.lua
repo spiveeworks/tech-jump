@@ -274,31 +274,32 @@ function sgn(x)
   return x / math.abs(x)
 end
 
-function collision(pos, vel, bounds)
+function calculate_collision(pos, vel, bounds)
   local sgn = sgn(vel)
   local edge = pos + bounds[sgn]
   local next_tile = sgn*(tile_from_pixel(sgn*edge) + 1)
   local coll_tile = next_tile
   if sgn == -1 then
+    -- colliding with right/bottom edge, so tile is identified by one less
     coll_tile = coll_tile - 1
   end
-  return edge, next_tile, coll_tile
+  local coll_time = (pixel_from_tile(next_tile) - edge) / vel
+  return coll_tile, coll_time
 end
 
 function do_physics(body)
   local simulation_left = 1
-  new_x = body.x + body.vel_x * simulation_left
-  new_y = body.y + body.vel_y * simulation_left
   local done = false
   while not done do
+    local new_y = body.y + body.vel_y * simulation_left
+
     if not (body.vel_y == 0) then
-      local edge, next_tile, coll_tile = collision(body.y, body.vel_y, body.yb)
-      local coll_time = (pixel_from_tile(next_tile) - edge) / body.vel_y
-      if coll_time <= simulation_left then
-        body.x = body.x + body.vel_x * coll_time
-        body.y = body.y + body.vel_y * coll_time
-        try_collide(body, coll_tile)
-        simulation_left = simulation_left - coll_time
+      local tile, time = calculate_collision(body.y, body.vel_y, body.yb)
+      if time <= simulation_left then
+        body.x = body.x + body.vel_x * time
+        body.y = body.y + body.vel_y * time
+        try_collide(body, tile)
+        simulation_left = simulation_left - time
       else
         done = true
       end
@@ -306,20 +307,13 @@ function do_physics(body)
       done = true
     end
   end
-  body.x = new_x
-  body.y = new_y
+  body.x = body.x + body.vel_x * simulation_left
+  body.y = body.y + body.vel_y * simulation_left
   body.vel_x = body.vel_x + body.acc_x
   body.vel_y = body.vel_y + body.acc_y
 end
 
-local frame_count = 0
 function love.update()
-  frame_count = frame_count + 1
-  if frame_count < 10 then
-    return
-else
-    frame_count = 0
-end
   for _, body in ipairs(bodies) do
     do_physics(body)
 
