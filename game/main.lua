@@ -22,27 +22,28 @@ function tiles.load(self, path)
 end
 
 function level.generate(self)
-  self.width, self.height = 25, 19
-  for x = 1, self.width do
+  self.left, self.right = 0, 24
+  self.top, self.bottom = 0, 18
+  for x = self.left, self.right do
     self[x] = {}
-    self[x][self.height - 1] = 1
-    self[x][self.height] = 1
+    self[x][self.bottom - 1] = 1
+    self[x][self.bottom] = 1
   end
-  for y = 1, self.height do
-    self[1][y] = 1
-    self[self.width][y] = 1
+  for y = self.top, self.bottom do
+    self[self.left][y] = 1
+    self[self.right][y] = 1
   end
-  self[24][15] = 1
   self[23][14] = 1
+  self[22][13] = 1
 end
 
 function bodies.generate(self)
   local player = {}
   player.mode = "falling"
   player.next_mode = "walking"
-  player.x, player.y = 600, 350
+  player.x, player.y = 600, 479
   player.width, player.height = 32, 64
-  player.vel_x, player.vel_y = 0, 0
+  player.vel_x, player.vel_y = -10, 1
   player.acc_x, player.acc_y = 0, 1
   player.hit_floor = hit_floor
   self[1] = player
@@ -242,7 +243,7 @@ end
 
 function try_collide(body, ty)
   local tx_min = tile_from_pixel(body.x)
-  local tx_max = tile_from_pixel(body.x + body.width)  -- can stand on walls?
+  local tx_max = tile_after_pixel(body.x + body.width) - 1
   local collided = false
   for tx = tx_min, tx_max do
     local col = level[tx] or {}
@@ -257,19 +258,21 @@ function try_collide(body, ty)
 end
 
 function tile_from_pixel(x)
-  return math.floor(x/32) + 1
+  return math.floor(x/32)
 end
 
 function tile_after_pixel(x)
-  return math.ceil(x/32) + 1
+  return math.ceil(x/32)
 end
 
 function pixel_from_tile(x)
-  return (x - 1) * 32
+  return x * 32
 end
 
 function do_physics(body)
   local simulation_left = 1
+  new_x = body.x + body.vel_x * simulation_left
+  new_y = body.y + body.vel_y * simulation_left
   local done = false
   while not done do
     local next_tile, coll_tile, coll_pixel
@@ -285,7 +288,7 @@ function do_physics(body)
     -- else nils
     if coll_tile then
       local coll_time = (pixel_from_tile(next_tile) - coll_pixel) / body.vel_y
-      if coll_time < simulation_left then
+      if coll_time <= simulation_left then
         body.x = body.x + body.vel_x * coll_time
         body.y = body.y + body.vel_y * coll_time
         try_collide(body, coll_tile)
@@ -297,13 +300,20 @@ function do_physics(body)
       done = true
     end
   end
-  body.x = body.x + body.vel_x * simulation_left
-  body.y = body.y + body.vel_y * simulation_left
+  body.x = new_x
+  body.y = new_y
   body.vel_x = body.vel_x + body.acc_x
   body.vel_y = body.vel_y + body.acc_y
 end
 
+local frame_count = 0
 function love.update()
+  frame_count = frame_count + 1
+  if frame_count < 10 then
+    return
+else
+    frame_count = 0
+end
   for _, body in ipairs(bodies) do
     do_physics(body)
 
@@ -326,8 +336,8 @@ end
 
 function love.draw()
   love.graphics.print(debug or "", 60, 10)
-  for x = 1, level.width do
-    for y = 1, level.height do
+  for x = level.left, level.right do
+    for y = level.top, level.bottom do
       local id = level[x][y]
       if id then
         draw_tile(tiles.img, tiles.quads[id], x, y)
